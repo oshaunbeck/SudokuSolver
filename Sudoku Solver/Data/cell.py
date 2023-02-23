@@ -1,51 +1,53 @@
-from .board import Board
-
 class Cell():
 
-    def __init__(self, num: int, board: Board, position: tuple = (0, 0)):
+    def __init__(self, num: int, block: int = 0, position: tuple = (0, 0)):
 
         self.num = num
 
         self.position = position
 
-        self.board = board
+        self.block = block
 
         self.row = self.position[0]
 
         self.col = self.position[1]
 
-        self.blacklist = []
+        self.possible_values = {1, 2, 3, 4, 5, 6, 7, 8, 9}
+
+        self.blacklist = set()
+
+
+    @property
+    def candidates(self):
+        return self.possible_values - self.blacklist
+    
+    @property
+    def info(self):
+
+        return f"""
+        Num:   {self.num}
+        Position: {self.position}
+        Row:    {self.row}
+        Column: {self.col}
+        Block:  {self.block}
+        Blacklist:  {self.blacklist}
+        Candidates: {self.candidates}
+        """
+
 
     def __repr__(self):
 
         return f"{self.num}"
 
-    def info(self):
+    def __eq__(self, other):
+        return self.num == other
+    
+    def __hash__(self):
+        return hash((self.row, self.col))
 
-        return f"""
-        
-        Num:   {self.num}
-        Position: {self.position}
+    def __gt__(self, other):
+        return self.num > other
+    
 
-        """
 
-    def find_block(self):
-        pass
 
-    def check_row(self):
-
-        for idx, row in enumerate(self.board):
-
-            if row[idx] == 0:
-                continue
-            else:
-                self.blacklist.append(row[idx])
-
-    def check_col(self):
-
-        for idx, col in enumerate(self.board.columns):
-
-            if col[idx] == 0:
-                continue
-            else:
-                self.blacklist.append(col[idx])

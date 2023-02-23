@@ -1,76 +1,132 @@
 import numpy as np
 
-from random import randint
-
 from .cell import Cell
+from typing import List, Optional, Tuple, Set
 
 
 class Board():
-    def __init__(self):
-
+    def __init__(self, values=None):
         self.board_size = (9, 9)
         self.block_size = (3, 3)
 
-        # Initialize a board with completely empty cells
+        # if values is None:
+        #     # Initialize a board with completely empty cells
+        #     self.initial_cells = [[Cell(0) for i in range(9)] for i in range(9)]
+        # else:
+        #     # Initialize a board with the provided values
+        #     self.initial_cells = [[Cell(values[i][j]) for j in range(9)] for i in range(9)]
         self.initial_cells = [[Cell(0) for i in range(9)] for i in range(9)]
-
         self.board = np.asarray(self.initial_cells)
 
+        self.blacklist_update_count = 0
+        self.blacklist_zero_count = 0
 
-    def get_columns(self):
+    # set_num:
+    # used to set the cell.num property while simultaneously updating
+    # the blacklist of each cell in its corresponding row, col and block.
 
-        self.columns = [self.board[:, i] for i in range(9)]
+    def set_num(self, cell: Cell, value: int):
 
-    def get_rows(self):
+        cell.num = value
 
-        self.rows = [self.board[i, :] for i in range(9)]
+        # update blacklists.
+        # fill_blacklist will fill all the blacklists of a corresponding cell
+        # that is why it must be called each time cell.num is updated.
 
-    def print_blocks(self):
+        self.fill_blacklist(cell)
 
-        self.block_array = []
+    def get_unique_candidate(self, cells: List[Cell]) -> Optional[Tuple[Cell, int]]:
+        """
+        Finds a unique candidate value in a list of cells. If a candidate value is found that is unique to a cell, it is considered
+        unique and the corresponding cell is returned along with the candidate value.
 
-        for block in self.blocks:
-            self.block_array.append(block)
+        :param cells: a list of cells to check
+        :return: a tuple containing the cell and the unique candidate value, or None if no unique candidate is found
+        """
+        for cell in cells:
+            for candidate in cell.candidates:
+                unique_candidate = True
+                for other_cell in cells:
+                    if other_cell != cell and candidate in other_cell.candidates:
+                        unique_candidate = False
+                        break
+                if unique_candidate:
+                    return cell, candidate
+        return None
 
-        print(f"""BLOCKS:
-        
-{self.block_array[0][0]} {self.block_array[1][0]} {self.block_array[2][0]}
-{self.block_array[0][1]} {self.block_array[1][1]} {self.block_array[2][1]}
-{self.block_array[0][2]} {self.block_array[1][2]} {self.block_array[2][2]}
 
-{self.block_array[3][0]} {self.block_array[4][0]} {self.block_array[5][0]}
-{self.block_array[3][1]} {self.block_array[4][1]} {self.block_array[5][1]}
-{self.block_array[3][2]} {self.block_array[4][2]} {self.block_array[5][2]}
+    def find_empty_cell(self) -> tuple[int, int]:
+        """
+        Finds the first empty cell in the board and returns its row and column indices.
+        """
+        for row in self.board:
+            for cell in row:
+                if cell == 0:
+                    print(f"Found empty cell! ({cell.row}, {cell.col})\n{self.board}")
+                    return cell.row, cell.col
+        return None
 
-{self.block_array[6][0]} {self.block_array[7][0]} {self.block_array[8][0]}
-{self.block_array[6][1]} {self.block_array[7][1]} {self.block_array[8][1]}
-{self.block_array[6][2]} {self.block_array[7][2]} {self.block_array[8][2]}
-        
-        """)
+    # BLACKLIST METHODS:
+    # These all have the same idea - iterate through the row, column or block
+    # that a cell belongs to, find non-zero values in these iterations and add them
+    # to the cells blacklist property.
 
-    def get_blocks(self):
+    # fill_blacklist() wll simply call all row, col and block blacklist methods.
 
-        self.blocks = np.zeros((9, 3, 3))
+    def row_blacklist(self, cell: Cell):
 
-        self.blocks = [self.board[i:i+3, j:j+3] for i in range(0, 9, 3) for j in range(0, 9, 3)]
+        # Because row_blacklist is called first from fill_blacklist, we will initialise
+        # iter_count
 
-    def update(self):
-        
-        self.get_rows()
-        self.get_columns()
-        self.get_blocks()
+        self.blacklist_update_count = 0
+        self.blacklist_zero_count = 0
+
+        # Iterate through the row, find any non-zero values and add them to the blacklist.
+
+        for c in self.board[cell.row, :]:
+            if c.num == 0:
+                self.blacklist_zero_count += 1
+
+            else:
+                cell.blacklist.add(c.num)
+
+                self.blacklist_update_count += 1
+
+    def col_blacklist(self, cell: Cell):
+
+        for c in self.board[:, cell.col]:
+            if c.num == 0:
+                self.blacklist_zero_count += 1
+            else:
+                cell.blacklist.add(c.num)
+
+                self.blacklist_update_count += 1
+
+    def block_blacklist(self, cell: Cell):
+
+        block = self.blocks[cell.block]
+
+        for c in block.flatten():
+
+            if c == 0:
+                self.blacklist_zero_count += 1
+
+            else:
+                cell.blacklist.add(c.num)
+
+                self.blacklist_update_count += 1
+
+    def fill_blacklist(self, cell: Cell):
+
+        # print(f"candidates for cell ({cell.position}) before blacklist {cell.candidates}")
+
+        self.row_blacklist(cell)
+        self.col_blacklist(cell)
+        self.block_blacklist(cell)
+
+        # print(f"candidates for cell ({cell.position}) after {cell.candidates}")
+
+        # print(f"Updated the black list of {self.blacklist_update_count} Cells")
+        # print(f"Found {self.blacklist_zero_count} zeros while updating blacklists. total: {self.blacklist_zero_count + self.blacklist_update_count}")
+
     
-    def generate_random(self):
-
-        print("Generating random")
-
-        for idx, row in enumerate(self.board):
-
-            for pos in range(9):
-
-                row[pos] = Cell(randint(1, 9), (idx, pos))
-
-
-
-
-
